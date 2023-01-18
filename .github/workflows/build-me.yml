@@ -1,0 +1,55 @@
+name: build-me
+on: [push, pull_request] 
+
+jobs:
+  actually-build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19.5'
+      
+      - name: cache random file
+        id: random-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            random_file.txt
+          key: 'random_hardcoded_key'
+      
+      - name: make random file
+        if: steps.random-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "here is a random file that is part of my build that makes this build not isolated/ephermal" > random_file.txt
+
+      - name: get pretty
+        run: |
+            go get github.com/kr/pretty
+
+      - name: ok build
+        run: |
+            go build -o main .
+      
+      - name: generate provenance
+        run: |
+            echo "" > provenance.txt
+            echo "Go Version: " > provenance.txt 
+            go version >> provenance.txt
+            echo "\n\nPackage Versions: " >> provenance.txt
+            go list -m all >> provenance.txt
+            echo "\n\nBuilt At: " >> provenance.txt
+            date >> provenance.txt
+            echo "\n\nBuilt In: " >> provenance.txt
+            pwd >> provenance.txt
+            echo "\n\nBuilt By: " >> provenance.txt
+            whoami >> provenance.txt
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: my-artifact
+          path: |
+            random_file.txt
+            provenance.txt
+            main
