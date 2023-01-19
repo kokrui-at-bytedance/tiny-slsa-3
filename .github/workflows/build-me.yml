@@ -3,6 +3,8 @@ on: [push, pull_request]
 
 jobs:
   actually-build:
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -18,24 +20,26 @@ jobs:
       - name: ok build
         run: |
             go build -o main .
-      
-      - name: generate provenance
+            
+      - name: generate hashes
+        shell: bash
+        id: hash
         run: |
-            echo "" > provenance.txt
-            echo "Go Version: " > provenance.txt 
-            go version >> provenance.txt
-            echo "\n\nPackage Versions: " >> provenance.txt
-            go list -m all >> provenance.txt
-            echo "\n\nBuilt At: " >> provenance.txt
-            date >> provenance.txt
-            echo "\n\nBuilt In: " >> provenance.txt
-            pwd >> provenance.txt
-            echo "\n\nBuilt By: " >> provenance.txt
-            whoami >> provenance.txt
+          echo "hashes=$(sha256sum main | base64 -w0)" >> "$GITHUB_OUTPUT"
       
       - uses: actions/upload-artifact@v3
         with:
           name: my-artifact
           path: |
-            provenance.txt
             main
+
+  provenance:
+    needs: [actually-build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.4.0
+    with:
+      base64-subjects: "${{ needs.build.outputs.hashes }}"
+      upload-assets: true
